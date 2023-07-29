@@ -20,7 +20,8 @@
 #if __linux__ || _WIN32
 #    include <malloc.h>
 #elif __APPLE__ || __FreeBSD__
-#    include <malloc/malloc.h>
+// #    include <malloc/malloc.h>
+#    include <malloc_np.h>
 #endif
 
 void Three::initPymemStats()
@@ -98,7 +99,8 @@ static size_t pyrawAllocSize(void *ptr)
 #elif _WIN32
     return ::_msize(ptr);
 #elif __APPLE__ || __FreeBSD__
-    return ::malloc_size(ptr);
+    // return ::malloc_size(ptr);
+    return ::malloc_usable_size(ptr);
 #else
     return 0;
 #endif
