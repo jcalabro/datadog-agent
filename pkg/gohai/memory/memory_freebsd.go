@@ -6,7 +6,6 @@
 package memory
 
 /*
-#include <sysctl.h>
 #include <sys/sysctl.h>
 #include <sys/types.h>
 
