@@ -5,73 +5,41 @@
 
 package memory
 
-import (
-	"bufio"
-	"fmt"
-	"io"
-	"os"
-	"regexp"
-	"strconv"
+/*
+#include <sysctl.h>
+#include <sys/sysctl.h>
+#include <sys/types.h>
 
+size_t get_sysctl(int top_level, int next_level) {
+	int mib[2]
+	size_t val, len;
+
+	mib[0] = top_level;
+	mib[1] = next_level;
+	len = sizeof(ctlvalue);
+
+	int res = sysctl(mib, 2, &val, &len, NULL, 0);
+	if (res == -1) {
+		return 0;
+	}
+
+	return val;
+}
+
+
+size_t get_total_physical_memory() {
+	return get_sysctl(CTL_HW, HW_PAGESIZE);
+}
+*/
+import "C"
+
+import (
 	"github.com/DataDog/datadog-agent/pkg/gohai/utils"
 )
 
-func parseMemoryInfo(reader io.Reader) (totalBytes utils.Value[uint64], swapTotalKb utils.Value[uint64], err error) {
-	var lines []string
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-
-	if scanner.Err() != nil {
-		err = fmt.Errorf("could not read /proc/meminfo: %w", scanner.Err())
-		return
-	}
-
-	totalBytes = utils.NewErrorValue[uint64](fmt.Errorf("'MemTotal' not found in /proc/meminfo"))
-	swapTotalKb = utils.NewErrorValue[uint64](fmt.Errorf("'SwapTotal' not found in /proc/meminfo"))
-	for _, line := range lines {
-		pair := regexp.MustCompile(": +").Split(line, 2)
-		values := regexp.MustCompile(" +").Split(pair[1], 2)
-
-		switch pair[0] {
-		case "MemTotal":
-			val, parseErr := strconv.ParseUint(values[0], 10, 64)
-			if parseErr == nil {
-				// val is in kb
-				totalBytes = utils.NewValue(val * 1024)
-			} else {
-				totalBytes = utils.NewErrorValue[uint64](fmt.Errorf("could not parse total size: %w", parseErr))
-			}
-		case "SwapTotal":
-			val, parseErr := strconv.ParseUint(values[0], 10, 64)
-			if parseErr == nil {
-				swapTotalKb = utils.NewValue(val)
-			} else {
-				swapTotalKb = utils.NewErrorValue[uint64](fmt.Errorf("could not parse total swap size: %w", parseErr))
-			}
-		}
-	}
-
-	return
-}
-
 func (info *Info) fillMemoryInfo() {
-	var totalBytes, swapTotalKb utils.Value[uint64]
+	totalBytes := C.get_total_physical_memory()
 
-	file, err := os.Open("/proc/meminfo")
-	if err == nil {
-		defer file.Close()
-		totalBytes, swapTotalKb, err = parseMemoryInfo(file)
-	} else {
-		err = fmt.Errorf("could not open /proc/meminfo: %w", err)
-	}
-
-	if err != nil {
-		totalBytes = utils.NewErrorValue[uint64](err)
-		swapTotalKb = utils.NewErrorValue[uint64](err)
-	}
-
-	info.TotalBytes = totalBytes
-	info.SwapTotalKb = swapTotalKb
+	info.TotalBytes = utils.NewValue(val)
+	info.SwapTotalKb = utils.NewValue(0)
 }
